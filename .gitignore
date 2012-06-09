@@ -1,0 +1,8 @@
+*.sdf
+*.ipch
+*.opensdf
+/Debug/*
+/Release/*
+/MeshOptimizing/Backup/*
+/MeshOptimizing/Debug/*
+/MeshOptimizing/Release/*
