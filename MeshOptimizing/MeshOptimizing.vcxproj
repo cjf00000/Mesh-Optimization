@@ -63,13 +63,15 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Display.cpp" />
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="LinearEquation_Special.cpp" />
     <ClCompile Include="Mesh.cpp" />
+    <ClCompile Include="show.cpp" />
     <ClCompile Include="SimpleObject.cpp" />
     <ClCompile Include="Vec3f.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Display.h" />
+    <ClInclude Include="LinearEquation_Special.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="SimpleObject.h" />
     <ClInclude Include="Vec3f.h" />

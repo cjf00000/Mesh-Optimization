@@ -10,7 +10,9 @@
 #include <gl\gl.h>			// Header File For The OpenGL32 Library
 #include <gl\glu.h>			// Header File For The GLu32 Library
 #include "Mesh.h"
+#include <string>
 using namespace SimpleOBJ;
+using namespace std;
 
 HDC			hDC=NULL;		// Private GDI Device Context
 HGLRC		hRC=NULL;		// Permanent Rendering Context
@@ -30,9 +32,9 @@ GLfloat LightPosition[]= { 0.0f, 0.0f, 2.0f, 1.0f };                 // Light Po
 
 
 GLfloat	rtri;				// Angle For The Triangle ( NEW )
-GLfloat	rquad;				// Angle For The Quad ( NEW )
+GLfloat	ztri;				// Angle For The Quad ( NEW )
 
-Mesh *mesh1, *mesh2;
+Mesh *mesh;
 
 LRESULT	CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);	// Declaration For WndProc
 
@@ -45,15 +47,16 @@ void DrawMesh(Mesh *mesh)
 {
 	glBegin(GL_TRIANGLES);								// Start Drawing A Triangle
 	glColor3f(1.0f,1.0f,1.0f);
-	for (int i=0; i<mesh->f.size(); ++i)
-	{
-		Vec3f normal = mesh->normal(mesh->f[i]);
-		glNormal3f(normal.x, normal.y, normal.z);
-		DrawVertex(mesh->v[mesh->f[i][0]]);
-		DrawVertex(mesh->v[mesh->f[i][1]]);
-		DrawVertex(mesh->v[mesh->f[i][2]]);
-	}
-	glEnd();											// Done Drawing The Pyramid
+	for (unsigned int i=0; i<mesh->f.size(); ++i)
+		if (mesh->f[i].alive)
+		{
+			Vec3f normal = mesh->normal(mesh->f[i]);
+			glNormal3f(normal.x, normal.y, normal.z);
+			DrawVertex(mesh->v[mesh->f[i].p[0]]);
+			DrawVertex(mesh->v[mesh->f[i].p[1]]);
+			DrawVertex(mesh->v[mesh->f[i].p[2]]);
+		}
+	glEnd();
 }
 
 GLvoid ReSizeGLScene(GLsizei width, GLsizei height)		// Resize And Initialize The GL Window
@@ -70,7 +73,7 @@ GLvoid ReSizeGLScene(GLsizei width, GLsizei height)		// Resize And Initialize Th
 
 	// Calculate The Aspect Ratio Of The Window
 	//gluPerspective(45.0f,(GLfloat)width/(GLfloat)height,0.1f,100.0f);
-	glOrtho(-0.6*(GLfloat)width/height, 0.6*(GLfloat)width/height, -0.6f, 0.6f, -5.0f, 5.0f);
+	glOrtho(-0.7f, 0.7f, -0.7f, 0.7f, -5.0f, 5.0f);
 
 	glMatrixMode(GL_MODELVIEW);							// Select The Modelview Matrix
 	glLoadIdentity();									// Reset The Modelview Matrix
@@ -78,6 +81,7 @@ GLvoid ReSizeGLScene(GLsizei width, GLsizei height)		// Resize And Initialize Th
 
 int InitGL(GLvoid)										// All Setup For OpenGL Goes Here
 {
+	//glPolygonMode(GL_FRONT_AND_BACK ,GL_LINE );
 	glShadeModel(GL_SMOOTH);							// Enable Smooth Shading
 	glClearColor(0.0f, 0.0f, 0.0f, 0.5f);				// Black Background
 	glClearDepth(1.0f);									// Depth Buffer Setup
@@ -96,18 +100,30 @@ int InitGL(GLvoid)										// All Setup For OpenGL Goes Here
 
 int DrawGLScene(GLvoid)									// Here's Where We Do All The Drawing
 {
+	char buff[1000];
+	sprintf(buff, "Optimize finished. Iter=%d, Totfaces=%d, QSize=%d", mesh->iterTimes, mesh->totFaces, mesh->qSize());
+	SetWindowText(hWnd, buff);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);	// Clear Screen And Depth Buffer
 	glLoadIdentity();									// Reset The Current Modelview Matrix
-	glTranslatef(-0.6f, 0.0f, -1.0f);
-	glRotatef(rtri,0.0f,1.0f,0.0f);						// Rotate The Triangle On The Y axis ( NEW )
-	DrawMesh(mesh1);
-
-	glLoadIdentity();
-	glTranslatef(0.6f, 0.0f, -1.0f);
-	glRotatef(rtri,0.0f,1.0f,0.0f);						// Rotate The Triangle On The Y axis ( NEW )
-	DrawMesh(mesh2);
-
-	rtri+=2.0f;											// Increase The Rotation Variable For The Triangle ( NEW )
+	glRotatef(rtri,0.0f,1.0f,0.0f);						// Rotate The Triangle On The Y axis ( NEW )	
+	glRotatef(ztri,1.0f,0.0f,0.0f);
+	DrawMesh(mesh);
+	if (keys[VK_LEFT])
+	{
+		rtri -= 0.5f;
+	}
+	else if (keys[VK_RIGHT])
+	{
+		rtri += 0.5f;
+	}
+	else if (keys[VK_UP])
+	{
+		ztri += 0.5;
+	}
+	else if (keys[VK_DOWN])
+	{
+		ztri -= 0.5;
+	}
 	return TRUE;										// Keep Going
 }
 
@@ -384,70 +400,160 @@ LRESULT CALLBACK WndProc(	HWND	hWnd,			// Handle For This Window
 	return DefWindowProc(hWnd,uMsg,wParam,lParam);
 }
 
+vector<string> Split(const string& s,
+	const string& match,
+	bool removeEmpty=false,
+	bool fullMatch=false);
+
 int WINAPI WinMain(	HINSTANCE	hInstance,			// Instance
 					HINSTANCE	hPrevInstance,		// Previous Instance
 					LPSTR		lpCmdLine,			// Command Line Parameters
 					int			nCmdShow)			// Window Show State
-{
-	mesh1 = new Mesh("Buddha.obj");
-	mesh2 = new Mesh("Buddha.obj");
-
-	MSG		msg;									// Windows Message Structure
-	BOOL	done=FALSE;								// Bool Variable To Exit Loop
-
-	// Ask The User Which Screen Mode They Prefer
-	if (MessageBox(NULL,"Would You Like To Run In Fullscreen Mode?", "Start FullScreen?",MB_YESNO|MB_ICONQUESTION)==IDNO)
+{	
+	int nCmdLineLength = strlen(lpCmdLine);
+	string cmdLine = string(lpCmdLine, lpCmdLine+nCmdLineLength);
+	if (cmdLine.empty())
 	{
-		fullscreen=FALSE;							// Windowed Mode
+		printf("Usage: \n");
+		printf("MeshOptimization animate input                        Create an animation to compare the algorithms. \n");
+		printf("MeshOptimization show mode input percentage           Reduce input model to percentage, show the image.\n");
+		printf("MeshOptimization model mode input output percentage   Output the reduced model to output.\n\n");
+		printf("Mode Parameters:\n");
+		printf("        l        use edge length as heuristics. v=(v1+v2)/2.\n");
+		printf("        q     use the quadratic cost function as heuristics. v=(v1+v2)/2.\n");
+		printf("        qopt     use the quadratic cost function as heuristics. v is optimal.\n\n");
+		printf("Examples:\n");
+		printf("MeshOptimization animate sphere.obj\n");
+		printf("MeshOptimization show \n");
+		printf("MeshOptimization model mode input output percentage   Output the reduced model to output.\n\n");
+		return 0;
 	}
+	vector<string> cmd = Split(cmdLine, " ");
 
-	// Create Our OpenGL Window
-	if (!CreateGLWindow("NeHe's Solid Object Tutorial",1280,480,16,fullscreen))
-	{
-		return 0;									// Quit If Window Was Not Created
-	}
+		mesh = new Mesh();
+		if (cmd[0]=="l")
+			mesh->setWorkMode(Mesh::EdgeLength);
+		else if (cmd[0]=="q")
+			mesh->setWorkMode(Mesh::Quadratic);
+		else
+			mesh->setWorkMode(Mesh::QuadraticOpt);
+		mesh->LoadFromObj(cmd[1].c_str());
 
-	while(!done)									// Loop That Runs While done=FALSE
-	{
-		if (PeekMessage(&msg,NULL,0,0,PM_REMOVE))	// Is There A Message Waiting?
+		float p = float(atoi(cmd[2].c_str())) / 100;
+		int targetFaces = mesh->totFaces*p;
+
+		while (mesh->totFaces > targetFaces)
 		{
-			if (msg.message==WM_QUIT)				// Have We Received A Quit Message?
-			{
-				done=TRUE;							// If So done=TRUE
-			}
-			else									// If Not, Deal With Window Messages
-			{
-				TranslateMessage(&msg);				// Translate The Message
-				DispatchMessage(&msg);				// Dispatch The Message
-			}
+			mesh->collapse();
 		}
-		else										// If There Are No Messages
-		{
-			// Draw The Scene.  Watch For ESC Key And Quit Messages From DrawGLScene()
-			if ((active && !DrawGLScene()) || keys[VK_ESCAPE])	// Active?  Was There A Quit Received?
-			{
-				done=TRUE;							// ESC or DrawGLScene Signalled A Quit
-			}
-			else									// Not Time To Quit, Update Screen
-			{
-				SwapBuffers(hDC);					// Swap Buffers (Double Buffering)
-			}
 
-			if (keys[VK_F1])						// Is F1 Being Pressed?
+		MSG		msg;									// Windows Message Structure
+		BOOL	done=FALSE;								// Bool Variable To Exit Loop
+
+		// Ask The User Which Screen Mode They Prefer
+		if (MessageBox(NULL,"Would You Like To Run In Fullscreen Mode?", "Start FullScreen?",MB_YESNO|MB_ICONQUESTION)==IDNO)
+		{
+			fullscreen=FALSE;							// Windowed Mode
+		}
+
+		// Create Our OpenGL Window
+		if (!CreateGLWindow("Optimization Result",640,640,16,fullscreen))
+		{
+			return 0;									// Quit If Window Was Not Created
+		}
+
+		while(!done)									// Loop That Runs While done=FALSE
+		{
+			if (PeekMessage(&msg,NULL,0,0,PM_REMOVE))	// Is There A Message Waiting?
 			{
-				keys[VK_F1]=FALSE;					// If So Make Key FALSE
-				KillGLWindow();						// Kill Our Current Window
-				fullscreen=!fullscreen;				// Toggle Fullscreen / Windowed Mode
-				// Recreate Our OpenGL Window
-				if (!CreateGLWindow("NeHe's Solid Object Tutorial",1280,480,16,fullscreen))
+				if (msg.message==WM_QUIT)				// Have We Received A Quit Message?
 				{
-					return 0;						// Quit If Window Was Not Created
+					done=TRUE;							// If So done=TRUE
+				}
+				else									// If Not, Deal With Window Messages
+				{
+					TranslateMessage(&msg);				// Translate The Message
+					DispatchMessage(&msg);				// Dispatch The Message
+				}
+			}
+			else										// If There Are No Messages
+			{
+				// Draw The Scene.  Watch For ESC Key And Quit Messages From DrawGLScene()
+				if ((active && !DrawGLScene()) || keys[VK_ESCAPE])	// Active?  Was There A Quit Received?
+				{
+					done=TRUE;							// ESC or DrawGLScene Signalled A Quit
+				}
+				else									// Not Time To Quit, Update Screen
+				{
+					SwapBuffers(hDC);					// Swap Buffers (Double Buffering)
+				}
+
+				if (keys[VK_F1])						// Is F1 Being Pressed?
+				{
+					keys[VK_F1]=FALSE;					// If So Make Key FALSE
+					KillGLWindow();						// Kill Our Current Window
+					fullscreen=!fullscreen;				// Toggle Fullscreen / Windowed Mode
+					// Recreate Our OpenGL Window
+					if (!CreateGLWindow("Optimization Result",640,640,16,fullscreen))
+					{
+						return 0;						// Quit If Window Was Not Created
+					}
 				}
 			}
 		}
-	}
 
-	// Shutdown
-	KillGLWindow();									// Kill The Window
-	return (msg.wParam);							// Exit The Program
+		// Shutdown
+		KillGLWindow();									// Kill The Window
+		return (msg.wParam);							// Exit The Program
 }
+	typedef string::size_type (string::*find_t)(const string& delim, 
+		string::size_type offset) const;
+	/// <summary>
+	/// Splits the string s on the given delimiter(s) and
+	/// returns a list of tokens without the delimiter(s)
+	/// </summary>
+	/// <param name=s>The string being split</param>
+	/// <param name=match>The delimiter(s) for splitting</param>
+	/// <param name=removeEmpty>Removes empty tokens from the list</param>
+	/// <param name=fullMatch>
+	/// True if the whole match string is a match, false
+	/// if any character in the match string is a match
+	/// </param>
+	/// <returns>A list of tokens</returns>
+	vector<string> Split(const string& s,
+		const string& match,
+		bool removeEmpty,
+		bool fullMatch)
+	{
+		vector<string> result;                 // return container for tokens
+		string::size_type start = 0,           // starting position for searches
+			skip = 1;            // positions to skip after a match
+		find_t pfind = &string::find_first_of; // search algorithm for matches
+		if (fullMatch)
+		{
+			// use the whole match string as a key
+			// instead of individual characters
+			// skip might be 0. see search loop comments
+			skip = match.length();
+			pfind = &string::find;
+		}
+		while (start != string::npos)
+		{
+			// get a complete range [start..end)
+			string::size_type end = (s.*pfind)(match, start);
+			// null strings always match in string::find, but
+			// a skip of 0 causes infinite loops. pretend that
+			// no tokens were found and extract the whole string
+			if (skip == 0) end = string::npos;
+			string token = s.substr(start, end - start);
+			if (!(removeEmpty && token.empty()))
+			{
+				// extract the token and add it to the result list
+				result.push_back(token);
+			}
+			// start the next range
+			if ((start = end) != string::npos) start += skip;
+		}
+		return result;
+	}
+	

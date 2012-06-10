@@ -48,6 +48,8 @@ namespace SimpleOBJ
                 printf("Triangle Number = %d\n",m_nTriangles);
                 fclose(fp);
 
+				//Set the object to center
+
 				float x_min=1e9, x_max=-1e9, y_min=1e-9, y_max=-1e9, z_min=1e-9, z_max=-1e9;
 				for ( int i=0; i<m_nVertices; ++i )
 				{

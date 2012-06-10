@@ -171,6 +171,18 @@ namespace SimpleOBJ
 		return -Vec3f(a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x);
 	}
 
+	float Vec3f::dot( Vec3f &a, Vec3f &b )
+	{
+		return (a._p[0]*b._p[0] + a._p[1]*b._p[1] + a._p[2]*b._p[2]);
+	}
+
+	std::ostream& operator<<( std::ostream &out, const Vec3f &a )
+	{
+		return out << '(' << a.x << ',' << a.y << ',' << a.z << ')' ;
+	}
+
+
+
 }
 
 

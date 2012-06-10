@@ -1,5 +1,6 @@
 #pragma once
 #include <cassert>
+#include <iostream>
 
 namespace SimpleOBJ
 {
@@ -54,6 +55,7 @@ namespace SimpleOBJ
         Vec3f operator -() const;
 
 		static Vec3f cross(Vec3f &a, Vec3f &b);
+		static float dot(Vec3f &a, Vec3f &b);
 
     public:
         Vec3f Normalize();
@@ -72,6 +74,7 @@ namespace SimpleOBJ
         enum {_len = 3};   
         
     };
+
+	std::ostream& operator << ( std::ostream &out, const SimpleOBJ::Vec3f &a);
 }
 
- 
